@@ -1,0 +1,38 @@
+stages:
+  - buildvue
+  - builddocker
+  - deploy
+
+build vue:
+    stage: buildvue
+    image: node:10.15.0-stretch
+    script:
+        # Install vuecli
+        - npm install -g @vue/cli@latest
+        # Install dependencies
+        - cd vue
+        - npm install
+        # Build App
+        - npm run build
+
+    artifacts:
+        expire_in: 1 hour
+
+build docker:
+    stage: builddocker
+    tags:
+        - foxeedocker
+    script:
+        - docker build -t koerberndocker/foxee ./flaskremote
+        - docker login -u "iaifoxconn" -p "p45163281!A" docker.io
+        - docker image push koerberndocker/foxee
+        - aws ecs update service --cluster FoxeeCluster --service Foxee-service --force-new-deployment
+
+deploy flask:
+    stage: deploy
+    image: python:latest
+    before_script:
+        - cd flaskremote
+        - pip install awsebcli --upgrade --user
+    script:
+        - /root/.local/bin/eb deploy flask-starter-dev
